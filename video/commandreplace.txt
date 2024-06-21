@@ -1,0 +1,42 @@
+#!/bin/bash
+
+
+words=(
+$WORDS$
+)
+
+drawtext_filters=$(IFS=, ; echo "${words[*]}")
+
+# Input files
+video1="$INPUT$"
+audio1="$SOUND$"
+video2="$OVERLAY$"
+
+# Intermediate files
+output1="output.mp4"
+
+# Final output file
+final_output="$OUTPUT$"
+
+# TikTok resolution
+tiktok_width=1080
+tiktok_height=1920
+
+# Crop position as a percentage of the video width
+position=0.7
+
+echo What
+
+# Process the first video and audio, ensuring the video matches the audio length
+ffmpeg -i "$video1" -i "$audio1" -filter_complex "[0:v]crop=w=ih*9/16:h=ih:x=iw*${position}-(iw*9/16)/2:y=0,scale=${tiktok_width}:${tiktok_height},${drawtext_filters}[v0];[1:a]aresample=async=1[a1];[v0][a1]concat=n=1:v=1:a=1[v][a]" -map "[v]" -map "[a]" -shortest -y "$output1"
+
+# Create a file list for concatenation
+echo "file '$output1'" > concat_list.txt
+echo "file '$video2'" >> concat_list.txt
+
+# Concatenate the two videos with re-encoding
+ffmpeg -f concat -safe 0 -protocol_whitelist file,http,https,tcp,tls,crypto -i concat_list.txt -c:v libx264 -c:a aac -strict experimental  -b:a 192k "$final_output"
+
+# Clean up intermediate files
+rm concat_list.txt 
+rm "$output1"
